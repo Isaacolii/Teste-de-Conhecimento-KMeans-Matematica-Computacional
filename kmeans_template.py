@@ -3,25 +3,11 @@ Trabalho: Implementação manual do K-means
 Matemática Computacional - Prof. Dr. Alexsandro O. A.
 
 Nome(s): Isaac Oliveira
-
-Regras:
-- Use apenas NumPy, pandas e Matplotlib.
-- É proibido usar sklearn, scipy.cluster ou qualquer K-means / silhueta prontos.
-- Siga exatamente o pseudocódigo e as convenções do enunciado.
-
-Como usar:
-- Implemente as funções marcadas com "TODO" (remova o `raise NotImplementedError`).
-- Rode `python kmeans_template.py`. Os testes do dataset 1 mostram OK ou FALHOU.
-- Depois, use as saídas dos datasets 2 e 3 para responder aos quizzes.
 """
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-
-# ---------------------------------------------------------------------------
-# Configuração dos datasets (NÃO ALTERE)
-# ---------------------------------------------------------------------------
 
 INIT_LOG = [2, 4, 6, 8, 10, 12]
 INIT_VENDAS = [10, 13, 11, 4, 18, 3, 5, 15]
@@ -56,17 +42,7 @@ DATASETS = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Funções fornecidas (prontas)
-# ---------------------------------------------------------------------------
-
 def carregar_dados(arquivo, colunas, coluna_id):
-    """Lê o CSV e devolve (X, df, ids).
-
-    X   : matriz n x d (float) com as colunas escolhidas
-    df  : DataFrame completo (para interpretar os grupos)
-    ids : vetor n com os ids de cada linha
-    """
     df = pd.read_csv(arquivo)
     X = df[colunas].to_numpy(dtype=float)
     ids = df[coluna_id].to_numpy()
@@ -74,11 +50,6 @@ def carregar_dados(arquivo, colunas, coluna_id):
 
 
 def contar_mudancas(r_a, r_b):
-    """Conta quantos dados mudam de grupo entre duas soluções.
-
-    Cada grupo de r_b é associado ao grupo de r_a com o qual mais compartilha
-    dados (a numeração dos grupos pode ser diferente nas duas soluções).
-    """
     mudancas = 0
     for g in np.unique(r_b):
         membros = r_a[r_b == g]
@@ -87,53 +58,26 @@ def contar_mudancas(r_a, r_b):
     return mudancas
 
 
-# ---------------------------------------------------------------------------
-# Funções a implementar
-# ---------------------------------------------------------------------------
-
 def padronizar(X):
-    """TODO: padronização z-score, coluna por coluna.
-
-    Use a média e o desvio-padrão POPULACIONAL (divisão por n, ddof=0).
-    Retorne (Z, mu, sigma), em que mu e sigma são vetores de tamanho d.
-    """
     mu = X.mean(axis=0)
-    sigma = X.std(axis=0)  # ddof=0 é o padrão do NumPy
-    Z = (X - mu) / sigma
-    return Z, mu, sigma
+    sigma = X.std(axis=0)
+    return (X - mu) / sigma, mu, sigma
 
 
 def centroides_iniciais(X, ids, lista_ids):
-    """TODO: monte a matriz C (k x d) com as linhas de X cujos ids estão em
-    lista_ids, NA ORDEM da lista (o 1º id vira o grupo 1, e assim por diante).
-    """
     linhas = [np.where(ids == i)[0][0] for i in lista_ids]
     return X[linhas].astype(float)
 
 
 def matriz_distancias(X, C):
-    """TODO: devolva a matriz D (n x k) com D[i, k] = ||x_i - c_k||^2.
-
-    Dica: use broadcasting, X[:, None, :] - C[None, :, :], sem laços sobre i.
-    """
-    diferencas = X[:, None, :] - C[None, :, :]  # n x k x d
-    return (diferencas ** 2).sum(axis=2)
+    return ((X[:, None, :] - C[None, :, :]) ** 2).sum(axis=2)
 
 
 def atribuir(D):
-    """TODO: devolva o vetor r (n) com o índice da menor entrada de cada linha de D.
-
-    Em caso de empate, vence o menor índice (np.argmin já faz isso).
-    """
     return np.argmin(D, axis=1)
 
 
 def atualizar_centroides(X, r, C):
-    """TODO: devolva a nova matriz de centroides (k x d).
-
-    Cada c_k é a média dos x_i com r[i] == k.
-    Se um grupo ficar vazio, seu centroide NÃO muda (use o valor de C).
-    """
     C_novo = C.copy()
     for k in range(C.shape[0]):
         if np.any(r == k):
@@ -142,34 +86,19 @@ def atualizar_centroides(X, r, C):
 
 
 def calcular_J(X, C, r):
-    """TODO: devolva J = soma de ||x_i - c_{r_i}||^2 (um número float)."""
     return float(((X - C[r]) ** 2).sum())
 
 
 def kmeans(X, C_inicial, max_iter=100):
-    """TODO: implemente o pseudocódigo do enunciado.
-
-    Retorne (r, C, historico_J, n_atualizacoes):
-    - r              : vetor n com o grupo final de cada dado (0, 1, ..., k-1)
-    - C              : matriz k x d com os centroides finais
-    - historico_J    : lista com J calculado após cada atualização
-    - n_atualizacoes : número de atualizações dos centroides
-    """
     C = C_inicial.copy()
     r_anterior = None
     historico_J = []
     n_atualizacoes = 0
 
-    for t in range(max_iter):
-        # Passo 1: atribuir
-        D = matriz_distancias(X, C)
-        r = atribuir(D)
-
-        # Critério de parada
+    for _ in range(max_iter):
+        r = atribuir(matriz_distancias(X, C))
         if r_anterior is not None and np.array_equal(r, r_anterior):
             break
-
-        # Passo 2: atualizar
         C = atualizar_centroides(X, r, C)
         n_atualizacoes += 1
         historico_J.append(calcular_J(X, C, r))
@@ -179,34 +108,23 @@ def kmeans(X, C_inicial, max_iter=100):
 
 
 def silhueta(X, r):
-    """TODO: devolva (s, s_media).
-
-    s[i] = (b(i) - a(i)) / max(a(i), b(i)), com distâncias euclidianas SEM o
-    quadrado. Se o grupo de i tiver um único elemento, use s[i] = 0.
-    """
-    dist = np.sqrt(matriz_distancias(X, X))  # n x n, distâncias entre os dados
-    n = X.shape[0]
+    dist = np.sqrt(matriz_distancias(X, X))
     grupos = np.unique(r)
-    s = np.zeros(n)
+    s = np.zeros(len(X))
 
-    for i in range(n):
+    for i in range(len(X)):
         A = r[i]
         tamanho_A = np.sum(r == A)
         if tamanho_A == 1:
-            continue  # s(i) = 0
-        a = dist[i, r == A].sum() / (tamanho_A - 1)  # dist[i, i] = 0 não pesa
+            continue
+        a = dist[i, r == A].sum() / (tamanho_A - 1)
         b = min(dist[i, r == B].mean() for B in grupos if B != A)
         s[i] = (b - a) / max(a, b)
 
     return s, s.mean()
 
 
-# ---------------------------------------------------------------------------
-# Rotinas de apoio (prontas, usam as suas funções)
-# ---------------------------------------------------------------------------
-
 def preparar(nome):
-    """Carrega o dataset `nome` e devolve (X_usado, X_original, df, ids, mu, sigma)."""
     cfg = DATASETS[nome]
     X, df, ids = carregar_dados(cfg["arquivo"], cfg["colunas"], cfg["id"])
     if cfg["padronizar"]:
@@ -216,7 +134,6 @@ def preparar(nome):
 
 
 def rodar(nome, k=None, padronizado=True):
-    """Roda o K-means no dataset `nome` com os k primeiros ids da lista de init."""
     cfg = DATASETS[nome]
     k = cfg["k"] if k is None else k
     Xu, Xo, df, ids, mu, sigma = preparar(nome)
@@ -229,7 +146,6 @@ def rodar(nome, k=None, padronizado=True):
 
 
 def relatorio(nome, k_max=8, graficos=False):
-    """Imprime as informações usadas nos quizzes dos datasets 2 e 3."""
     cfg = DATASETS[nome]
     print(f"\n{'=' * 70}\nDATASET: {nome}  (k = {cfg['k']}, init = {cfg['init'][:cfg['k']]})\n{'=' * 70}")
     res = rodar(nome)
@@ -284,10 +200,6 @@ def relatorio(nome, k_max=8, graficos=False):
         plt.show()
     return res
 
-
-# ---------------------------------------------------------------------------
-# Testes do dataset 1 (entregas dos Correios)
-# ---------------------------------------------------------------------------
 
 def _confere(nome, obtido, esperado, tol=0.01):
     ok = np.allclose(np.asarray(obtido, dtype=float), np.asarray(esperado, dtype=float), atol=tol)
@@ -345,14 +257,7 @@ def testes_logistica(graficos=False):
         plt.show()
 
 
-# ---------------------------------------------------------------------------
-# Programa principal
-# ---------------------------------------------------------------------------
-
 if __name__ == "__main__":
-    try:
-        testes_logistica(graficos=False)
-        relatorio("vendas", graficos=False)
-        relatorio("banco", graficos=False)
-    except NotImplementedError as e:
-        print(f"\nFunção ainda não implementada: {e}()")
+    testes_logistica()
+    relatorio("vendas")
+    relatorio("banco")
